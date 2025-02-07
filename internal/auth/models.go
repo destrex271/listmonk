@@ -51,6 +51,8 @@ const (
 	PermSubscribersManage     = "subscribers:manage"
 	PermSubscribersImport     = "subscribers:import"
 	PermSubscribersSqlQuery   = "subscribers:sql_query"
+	PermSubscribersSwitch     = "subscribers:switch"
+	PermSubscribersSwitchList = "subscribers:switch_list"
 	PermTxSend                = "tx:send"
 	PermCampaignsGet          = "campaigns:get"
 	PermCampaignsGetAll       = "campaigns:get_all"
