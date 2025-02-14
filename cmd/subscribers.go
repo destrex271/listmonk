@@ -255,6 +255,38 @@ func (a *App) CreateSubscriber(c echo.Context) error {
 	return c.JSON(http.StatusOK, okResp{sub})
 }
 
+// AddAndRmList handles adding and/or removing subscriber lists.
+func (a *App) AddAndRmList(c echo.Context) error {
+	var req struct {
+		Email string `json:"email"`
+		List1 []int  `json:"lista"`
+		List2 []int  `json:"listr"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
+	}
+
+	subscribers, err := a.core.GetSubscribersByEmail([]string{req.Email})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, err.Error())
+	}
+
+	if len(subscribers) == 0 {
+		return echo.NewHTTPError(http.StatusNotFound, "no subscriber found")
+	}
+
+	var data []models.Subscriber
+	for _, sub := range subscribers {
+		out, _, err := a.core.UpdateSubscriberWithLists(sub.ID, sub, req.List1, nil, false, true, false, []int{}, false)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		data = append(data, out)
+	}
+
+	return c.JSON(http.StatusOK, okResp{data})
+}
+
 // UpdateSubscriber handles modification of a subscriber.
 func (a *App) UpdateSubscriber(c echo.Context) error {
 	user := auth.GetUser(c)
@@ -299,53 +331,6 @@ func (a *App) UpdateSubscriber(c echo.Context) error {
 	maskRestrictedSubLists(user, &out)
 
 	return c.JSON(http.StatusOK, okResp{out})
-}
-
-// AddAndRmList handles adding and/or removing subscriber lists.
-func (a *App) AddAndRmList(c echo.Context) error {
-	email := c.QueryParam("email")
-	list1, _ := strconv.Atoi(c.QueryParam("lista"))
-	list2, _ := strconv.Atoi(c.QueryParam("listr"))
-	addBoth, _ := strconv.Atoi(c.QueryParam("addBoth"))
-
-	subscribers, err := a.core.GetSubscribersByEmail([]string{email})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, err.Error())
-	}
-
-	if len(subscribers) == 0 {
-		return echo.NewHTTPError(http.StatusNotFound, "no subscriber found")
-	}
-
-	var data []models.Subscriber
-	for _, sub := range subscribers {
-		lists, err := a.core.GetSubscriberLists(sub.ID, sub.UUID, nil, nil, "", "")
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
-
-		var newLists []int
-		if addBoth == 1 {
-			newLists = append(newLists, list1)
-			newLists = append(newLists, list2)
-		} else {
-			for i := range lists {
-				if lists[i].ID != list2 {
-					newLists = append(newLists, lists[i].ID)
-				}
-			}
-			newLists = append(newLists, list1)
-		}
-
-		out, _, err := a.core.UpdateSubscriberWithLists(sub.ID, sub, newLists, nil, false, true, false, []int{}, false)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-		}
-
-		data = append(data, out)
-	}
-
-	return c.JSON(http.StatusOK, okResp{data})
 }
 
 // PatchSubscriber handles partially modifying a subscriber.
