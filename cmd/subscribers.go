@@ -260,7 +260,6 @@ func (a *App) AddAndRmList(c echo.Context) error {
 	var req struct {
 		Email string `json:"email"`
 		List1 []int  `json:"lista"`
-		List2 []int  `json:"listr"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
