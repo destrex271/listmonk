@@ -57,6 +57,7 @@ const (
 	PermCampaignsGet          = "campaigns:get"
 	PermCampaignsGetAll       = "campaigns:get_all"
 	PermCampaignsGetAnalytics = "campaigns:get_analytics"
+	PermCampaignsGetIndivCpg  = "campaigns:get_indiv_cpg"
 	PermCampaignsManage       = "campaigns:manage"
 	PermCampaignsManageAll    = "campaigns:manage_all"
 	PermCampaignsSend         = "campaigns:send"

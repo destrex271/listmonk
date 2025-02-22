@@ -79,6 +79,13 @@ type CampaignAnalyticsLink struct {
 	Count int    `db:"count" json:"count"`
 }
 
+type CampaignIndividualViews struct {
+	CampaignId string `db:"campaign_id" json:"campaign_id"`
+	Name       string `db:"name" json:"name"`
+	Email      string `db:"email" json:"email"`
+	Status     string `db:"status" json:"status"`
+}
+
 type CampaignViewExport struct {
 	CampaignID     int       `db:"campaign_id"`
 	CampaignUUID   string    `db:"campaign_uuid"`

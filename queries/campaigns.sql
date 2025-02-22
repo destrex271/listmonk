@@ -487,3 +487,6 @@ WITH view AS (
 INSERT INTO campaign_views (campaign_id, subscriber_id)
     VALUES((SELECT campaign_id FROM view), (SELECT subscriber_id FROM view));
 
+-- name: get-individual-campaign-views
+SELECT campaign_id, sname as name, email, sstatus as status from campaigns inner join (select subs.name as sname, email, subs.status as sstatus, cpv.id as campaign_id from campaign_views as cpv right join subscribers as subs on cpv.subscriber_id = subs.id) on campaign_id = id;
+
