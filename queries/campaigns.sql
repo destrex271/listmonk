@@ -488,7 +488,7 @@ INSERT INTO campaign_views (campaign_id, subscriber_id)
     VALUES((SELECT campaign_id FROM view), (SELECT subscriber_id FROM view));
 
 -- name: get-individual-campaign-views
-SELECT c.id AS campaign_id, subs.name AS name, subs.email, subs.status AS status 
+SELECT DISTINCT c.id AS campaign_id, subs.name AS name, subs.email, subs.status AS status 
 FROM campaigns c
 INNER JOIN campaign_views cpv ON c.id = cpv.campaign_id
 RIGHT JOIN subscribers subs ON cpv.subscriber_id = subs.id

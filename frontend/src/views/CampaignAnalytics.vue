@@ -86,7 +86,7 @@
               <!-- <td>{{ item.campaign_id }}</td> -->
               <td>{{ item.name }}</td>
               <td>{{ item.email }}</td>
-              <td>Subscribed</td>
+              <td>{{ item.status == "enabled" ? "Subscribed" : "Un-Subscribed" }}</td>
             </tr>
           </tbody>
         </table>
@@ -104,7 +104,6 @@
             <tr>
               <th>Link</th>
               <th>Total Clicks</th>
-              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
