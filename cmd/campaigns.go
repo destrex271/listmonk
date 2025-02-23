@@ -638,8 +638,6 @@ func (a *App) GetCampaignViewAnalytics(c echo.Context) error {
 		return err
 	}
 
-	fmt.Println(out)
-
 	return c.JSON(http.StatusOK, okResp{out})
 }
 
@@ -665,6 +663,64 @@ func (a *App) GetCampaignIndividualViews(c echo.Context) error {
 	}
 
 	out, err := a.core.GetCampaignIndividualViews(ids, from, to)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, okResp{out})
+}
+
+func (a *App) GetCampaignIndividualLinkClicks(c echo.Context) error {
+	var (
+		from = c.QueryParams().Get("from")
+		to   = c.QueryParams().Get("to")
+	)
+
+	ids, err := parseStringIDs(c.Request().URL.Query()["id"])
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest,
+			a.i18n.Ts("globals.messages.errorInvalidIDs", "error", err.Error()))
+	}
+
+	if len(ids) == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest,
+			a.i18n.Ts("globals.messages.missingFields", "name", "`id`"))
+	}
+
+	if !strHasLen(from, 10, 30) || !strHasLen(to, 10, 30) {
+		return echo.NewHTTPError(http.StatusBadRequest, a.i18n.T("analytics.invalidDates"))
+	}
+
+	out, err := a.core.GetCampaignIndividualLinkClicks(ids, from, to)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, okResp{out})
+}
+
+func (a *App) GetCampaignIndividualLinkClicksUsers(c echo.Context) error {
+	var (
+		from = c.QueryParams().Get("from")
+		to   = c.QueryParams().Get("to")
+	)
+
+	ids, err := parseStringIDs(c.Request().URL.Query()["id"])
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest,
+			a.i18n.Ts("globals.messages.errorInvalidIDs", "error", err.Error()))
+	}
+
+	if len(ids) == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest,
+			a.i18n.Ts("globals.messages.missingFields", "name", "`id`"))
+	}
+
+	if !strHasLen(from, 10, 30) || !strHasLen(to, 10, 30) {
+		return echo.NewHTTPError(http.StatusBadRequest, a.i18n.T("analytics.invalidDates"))
+	}
+
+	out, err := a.core.GetCampaignAllIndividualClickUsers(ids, from, to)
 	if err != nil {
 		return err
 	}
