@@ -547,11 +547,33 @@ BEGIN
         SELECT b.subscriber_id
         FROM bounces b
         GROUP BY b.subscriber_id
-        HAVING COUNT(*) > 3
+        HAVING COUNT(*) > 0
     )
-    -- OPTIONAL: Only update if they aren't already marked unverified 
+    -- OPTIONAL: Only update if they aren't already marked unverified
     -- (This prevents unnecessary writes)
     AND (s.attribs->>'verified')::boolean IS DISTINCT FROM false;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Process soft bounces and update subscriber status.
+CREATE OR REPLACE FUNCTION process_soft_bounces()
+RETURNS VOID AS $$
+BEGIN
+    -- Find subscribers who are verified and have a soft bounce,
+    -- and then un-verify and blocklist them.
+    WITH soft_bounced_verified_subs AS (
+        SELECT s.id
+        FROM subscribers s
+        JOIN bounces b ON s.id = b.subscriber_id
+        WHERE (s.attribs->>'verified')::boolean IS TRUE
+          AND b.type = 'soft'
+        GROUP BY s.id
+    )
+    UPDATE subscribers
+    SET
+        attribs = jsonb_set(attribs, '{verified}', 'false'::jsonb, true),
+        status = 'blocklisted'
+    WHERE id IN (SELECT id FROM soft_bounced_verified_subs);
 END;
 $$ LANGUAGE plpgsql;
 
