@@ -460,7 +460,7 @@ DECLARE
     is_verified BOOLEAN;
 BEGIN
     -- Loop through all subscribers
-    FOR sub IN SELECT id, attribs FROM subscribers WHERE attribs IS NOT NULL
+    FOR sub IN SELECT id, attribs FROM subscribers WHERE attribs IS NOT NULL AND status != 'blocklisted'
     LOOP
         is_verified := (sub.attribs->>'verified')::BOOLEAN;
 
