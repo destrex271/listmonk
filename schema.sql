@@ -355,7 +355,7 @@ CREATE TABLE sub_verified_by_lmonk (
     subscriber_id    INTEGER NOT NULL REFERENCES subscribers(id) ON DELETE CASCADE ON UPDATE CASCADE,
     verified_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-DROP INDEX IF EXISTS idx_sub_verified_by_lmonk_sub_id; CREATE INDEX idx_sub_verified_by_lmonk_sub_id ON sub_verified_by_lmonk(subscriber_id);
+DROP INDEX IF EXISTS idx_sub_verified_by_lmonk_sub_id; CREATE UNIQUE INDEX idx_sub_verified_by_lmonk_sub_id ON sub_verified_by_lmonk(subscriber_id);
 
 -- materialized views
 
@@ -581,19 +581,26 @@ $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION mark_verified_on_view(view_date date)
 RETURNS VOID AS $$
+DECLARE
+    verified_sub_ids INT[];
 BEGIN
-    WITH verified_subs AS (
-        SELECT DISTINCT subscriber_id
-        FROM campaign_views
-        WHERE DATE(created_at) > view_date AND subscriber_id IS NOT NULL
-    )
-    UPDATE subscribers
-    SET attribs = jsonb_set(attribs, '{verified}', 'true'::jsonb, true)
-    WHERE (attribs->>'verified')::boolean IS false AND id IN (SELECT subscriber_id FROM verified_subs);
+    -- Find all subscribers who viewed a campaign after the given date
+    SELECT ARRAY_AGG(DISTINCT subscriber_id)
+    INTO verified_sub_ids
+    FROM campaign_views
+    WHERE DATE(created_at) > view_date AND subscriber_id IS NOT NULL;
 
-    INSERT INTO sub_verified_by_lmonk (subscriber_id)
-    SELECT subscriber_id
-    FROM verified_subs
-    ON CONFLICT (subscriber_id) DO NOTHING;
+    -- If there are any such subscribers, proceed
+    IF array_length(verified_sub_ids, 1) > 0 THEN
+        -- Update the status for those who are currently unverified
+        UPDATE subscribers
+        SET attribs = jsonb_set(attribs, '{verified}', 'true'::jsonb, true)
+        WHERE (attribs->>'verified')::boolean IS false AND id = ANY(verified_sub_ids);
+
+        -- Record all subscribers who viewed, regardless of their previous status
+        INSERT INTO sub_verified_by_lmonk (subscriber_id)
+        SELECT unnest(verified_sub_ids)
+        ON CONFLICT (subscriber_id) DO NOTHING;
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
