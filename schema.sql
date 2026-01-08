@@ -353,9 +353,26 @@ DROP TABLE IF EXISTS sub_verified_by_lmonk CASCADE;
 CREATE TABLE sub_verified_by_lmonk (
     id               SERIAL PRIMARY KEY,
     subscriber_id    INTEGER NOT NULL REFERENCES subscribers(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    verified_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    promoted_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    promoted_by      TEXT NOT NULL,
+    meta             JSONB NOT NULL DEFAULT '{}'
 );
-DROP INDEX IF EXISTS idx_sub_verified_by_lmonk_sub_id; CREATE UNIQUE INDEX idx_sub_verified_by_lmonk_sub_id ON sub_verified_by_lmonk(subscriber_id);
+DROP INDEX IF EXISTS idx_sub_verified_by_lmonk_sub_id;
+CREATE INDEX idx_sub_verified_by_lmonk_sub_id ON sub_verified_by_lmonk(subscriber_id);
+CREATE INDEX idx_sub_verified_by_lmonk_promoted_at ON sub_verified_by_lmonk(promoted_at);
+
+-- subscriber_demotion_audits
+DROP TABLE IF EXISTS subscriber_demotion_audits CASCADE;
+CREATE TABLE subscriber_demotion_audits (
+    id               SERIAL PRIMARY KEY,
+    subscriber_id    INTEGER NOT NULL REFERENCES subscribers(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    demoted_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    demoted_by       TEXT NOT NULL, -- e.g., 'soft_bounce', 'bounce_threshold'
+    meta             JSONB NOT NULL DEFAULT '{}'
+);
+CREATE INDEX idx_sub_dem_audits_sub_id ON subscriber_demotion_audits(subscriber_id);
+CREATE INDEX idx_sub_dem_audits_demoted_at ON subscriber_demotion_audits(demoted_at);
+
 
 -- materialized views
 
@@ -538,26 +555,38 @@ $$ LANGUAGE plpgsql;
 -- Process Bounces
 CREATE OR REPLACE FUNCTION check_bounce_threshold()
 RETURNS VOID AS $$
+DECLARE
+    demoted_sub_ids INT[];
 BEGIN
     -- Update all subscribers whose bounce count in the 'bounces' table
-    -- is greater than 3, marking them as unverified ('false').
-    UPDATE subscribers s
-    SET attribs = jsonb_set(s.attribs, '{verified}', 'false'::jsonb, true)
-    WHERE s.id IN (
-        SELECT b.subscriber_id
-        FROM bounces b
-        GROUP BY b.subscriber_id
-        HAVING COUNT(*) > 0
+    -- is greater than a certain threshold, marking them as unverified ('false').
+    WITH updated_subscribers AS (
+        UPDATE subscribers s
+        SET attribs = jsonb_set(s.attribs, '{verified}', 'false'::jsonb, true)
+        WHERE s.id IN (
+            SELECT b.subscriber_id
+            FROM bounces b
+            GROUP BY b.subscriber_id
+            HAVING COUNT(*) > 0
+        )
+        AND (s.attribs->>'verified')::boolean IS DISTINCT FROM false
+        RETURNING id
     )
-    -- OPTIONAL: Only update if they aren't already marked unverified
-    -- (This prevents unnecessary writes)
-    AND (s.attribs->>'verified')::boolean IS DISTINCT FROM false;
+    SELECT ARRAY_AGG(id) INTO demoted_sub_ids FROM updated_subscribers;
+
+    -- If there are any such subscribers whose status was demoted, log them
+    IF demoted_sub_ids IS NOT NULL AND array_length(demoted_sub_ids, 1) > 0 THEN
+        INSERT INTO subscriber_demotion_audits (subscriber_id, demoted_by)
+        SELECT unnest(demoted_sub_ids), 'bounce_threshold';
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
 -- Process soft bounces and update subscriber status.
 CREATE OR REPLACE FUNCTION process_soft_bounces()
 RETURNS VOID AS $$
+DECLARE
+    demoted_sub_ids INT[];
 BEGIN
     -- Find subscribers who are verified and have a soft bounce,
     -- and then un-verify and blocklist them.
@@ -568,12 +597,22 @@ BEGIN
         WHERE (s.attribs->>'verified')::boolean IS TRUE
           AND b.type = 'soft'
         GROUP BY s.id
+    ),
+    updated_subscribers AS (
+        UPDATE subscribers
+        SET
+            attribs = jsonb_set(attribs, '{verified}', 'false'::jsonb, true),
+            status = 'blocklisted'
+        WHERE id IN (SELECT id FROM soft_bounced_verified_subs)
+        RETURNING id
     )
-    UPDATE subscribers
-    SET
-        attribs = jsonb_set(attribs, '{verified}', 'false'::jsonb, true),
-        status = 'blocklisted'
-    WHERE id IN (SELECT id FROM soft_bounced_verified_subs);
+    SELECT ARRAY_AGG(id) INTO demoted_sub_ids FROM updated_subscribers;
+
+    -- If there are any such subscribers whose status was demoted, log them
+    IF demoted_sub_ids IS NOT NULL AND array_length(demoted_sub_ids, 1) > 0 THEN
+        INSERT INTO subscriber_demotion_audits (subscriber_id, demoted_by)
+        SELECT unnest(demoted_sub_ids), 'soft_bounce';
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -582,25 +621,31 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION mark_verified_on_view(view_date date)
 RETURNS VOID AS $$
 DECLARE
-    verified_sub_ids INT[];
+    -- Stores IDs of all subscribers who viewed a campaign after view_date and were promoted
+    promoted_sub RECORD;
 BEGIN
-    -- Find all subscribers who viewed a campaign after the given date
-    SELECT ARRAY_AGG(DISTINCT subscriber_id)
-    INTO verified_sub_ids
-    FROM campaign_views
-    WHERE DATE(created_at) > view_date AND subscriber_id IS NOT NULL;
-
-    -- If there are any such subscribers, proceed
-    IF array_length(verified_sub_ids, 1) > 0 THEN
-        -- Update the status for those who are currently unverified
+    -- Iterate through distinct subscriber_id and campaign_id that meet the criteria
+    FOR promoted_sub IN
+        SELECT DISTINCT s.id AS subscriber_id, cv.campaign_id
+        FROM subscribers s
+        JOIN campaign_views cv ON s.id = cv.subscriber_id
+        WHERE (s.attribs->>'verified')::boolean IS false -- Only consider unverified subscribers
+          AND DATE(cv.created_at) > view_date
+          AND cv.subscriber_id IS NOT NULL
+    LOOP
+        -- Update the status for the current subscriber
         UPDATE subscribers
         SET attribs = jsonb_set(attribs, '{verified}', 'true'::jsonb, true)
-        WHERE (attribs->>'verified')::boolean IS false AND id = ANY(verified_sub_ids);
+        WHERE id = promoted_sub.subscriber_id
+          AND (attribs->>'verified')::boolean IS false; -- Ensure it's still unverified before update
 
-        -- Record all subscribers who viewed, regardless of their previous status
-        INSERT INTO sub_verified_by_lmonk (subscriber_id)
-        SELECT unnest(verified_sub_ids)
-        ON CONFLICT (subscriber_id) DO NOTHING;
-    END IF;
+        -- Record the promotion event
+        INSERT INTO sub_verified_by_lmonk (subscriber_id, promoted_by, meta)
+        VALUES (
+            promoted_sub.subscriber_id,
+            'campaign_view',
+            JSONB_BUILD_OBJECT('view_date', view_date, 'campaign_id', promoted_sub.campaign_id)
+        );
+    END LOOP;
 END;
 $$ LANGUAGE plpgsql;
