@@ -546,6 +546,110 @@ END;
 $$ LANGUAGE plpgsql;
 
 
+-- Trigger to sync a single subscriber to verified/unverified lists on insert/update.
+CREATE OR REPLACE FUNCTION sync_subscriber_to_verified_status()
+RETURNS TRIGGER AS $$
+DECLARE
+    lang TEXT;
+    freq TEXT;
+    list_base_name TEXT;
+    shared_list_name TEXT;
+    verified_list_name TEXT;
+    unverified_list_name TEXT;
+    l_type list_type := 'public';
+    l_optin list_optin := 'double';
+    shared_list_id INT;
+    verified_list_id INT;
+    unverified_list_id INT;
+    is_verified BOOLEAN;
+BEGIN
+    -- Only proceed if attribs is not null.
+    IF NEW.attribs IS NULL THEN
+        RETURN NEW;
+    END IF;
+
+    is_verified := (NEW.attribs->>'verified')::BOOLEAN;
+
+    -- Clean up any existing list memberships for this subscriber for lists matching the pattern.
+    DELETE FROM subscriber_lists
+    USING lists
+    WHERE subscriber_lists.subscriber_id = NEW.id
+      AND subscriber_lists.list_id = lists.id
+      AND (
+          lists.name LIKE '%_%m%'
+      );
+
+    -- For each language and frequency preference in the subscriber attributes.
+    -- We assume attribs contains 'language_preferences' and 'frequency_preferences' as JSON arrays.
+    IF NEW.attribs ? 'language_preferences' AND NEW.attribs ? 'frequency_preferences' THEN
+        FOR lang IN SELECT jsonb_array_elements_text(NEW.attribs->'language_preferences')
+        LOOP
+            FOR freq IN SELECT jsonb_array_elements_text(NEW.attribs->'frequency_preferences')
+            LOOP
+                list_base_name := lower(lang) || '_' || lower(freq);
+                shared_list_name := list_base_name;
+                verified_list_name := list_base_name || '_verified';
+                unverified_list_name := list_base_name || '_unverified';
+
+                -- Ensure shared list exists.
+                SELECT id INTO shared_list_id FROM lists WHERE name = shared_list_name;
+                IF NOT FOUND THEN
+                    INSERT INTO lists (uuid, name, type, optin, description, tags)
+                    VALUES (gen_random_uuid(), shared_list_name, l_type, l_optin, 'Auto-created shared list',
+                            ARRAY['language:' || lower(lang), 'frequency:' || lower(freq)])
+                    RETURNING id INTO shared_list_id;
+                END IF;
+
+                -- Ensure verified list exists.
+                SELECT id INTO verified_list_id FROM lists WHERE name = verified_list_name;
+                IF NOT FOUND THEN
+                    INSERT INTO lists (uuid, name, type, optin, description, tags)
+                    VALUES (gen_random_uuid(), verified_list_name, l_type, l_optin, 'Auto-created verified list',
+                            ARRAY['language:' || lower(lang), 'frequency:' || lower(freq)])
+                    RETURNING id INTO verified_list_id;
+                END IF;
+
+                -- Ensure unverified list exists.
+                SELECT id INTO unverified_list_id FROM lists WHERE name = unverified_list_name;
+                IF NOT FOUND THEN
+                    INSERT INTO lists (uuid, name, type, optin, description, tags)
+                    VALUES (gen_random_uuid(), unverified_list_name, l_type, l_optin, 'Auto-created unverified list',
+                            ARRAY['language:' || lower(lang), 'frequency:' || lower(freq)])
+                    RETURNING id INTO unverified_list_id;
+                END IF;
+
+                -- Assign to shared list.
+                INSERT INTO subscriber_lists (subscriber_id, list_id, status)
+                VALUES (NEW.id, shared_list_id, 'confirmed')
+                ON CONFLICT (subscriber_id, list_id) DO NOTHING;
+
+                -- Assign to verified/unverified list.
+                IF is_verified THEN
+                    INSERT INTO subscriber_lists (subscriber_id, list_id, status)
+                    VALUES (NEW.id, verified_list_id, 'confirmed')
+                    ON CONFLICT (subscriber_id, list_id) DO NOTHING;
+                ELSE
+                    INSERT INTO subscriber_lists (subscriber_id, list_id, status)
+                    VALUES (NEW.id, unverified_list_id, 'confirmed')
+                    ON CONFLICT (subscriber_id, list_id) DO NOTHING;
+                END IF;
+            END LOOP;
+        END LOOP;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trig_sync_subscriber_to_verified_status ON subscribers;
+CREATE TRIGGER trig_sync_subscriber_to_verified_status
+AFTER INSERT OR UPDATE OF attribs ON subscribers
+FOR EACH ROW
+EXECUTE FUNCTION sync_subscriber_to_verified_status();
+
+
+
+
 
 -- Process Bounces
 CREATE OR REPLACE FUNCTION check_bounce_threshold()
