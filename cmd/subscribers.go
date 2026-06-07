@@ -255,12 +255,41 @@ func (a *App) CreateSubscriber(c echo.Context) error {
 	return c.JSON(http.StatusOK, okResp{sub})
 }
 
+// AddAndRmList handles adding and/or removing subscriber lists.
+func (a *App) AddAndRmList(c echo.Context) error {
+	var req struct {
+		Email string `json:"email"`
+		List1 []int  `json:"lista"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
+	}
+
+	subscribers, err := a.core.GetSubscribersByEmail([]string{req.Email})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, err.Error())
+	}
+
+	if len(subscribers) == 0 {
+		return echo.NewHTTPError(http.StatusNotFound, "no subscriber found")
+	}
+
+	var data []models.Subscriber
+	for _, sub := range subscribers {
+		out, _, err := a.core.UpdateSubscriberWithLists(sub.ID, sub, req.List1, nil, false, true, false, []int{}, false)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		data = append(data, out)
+	}
+
+	return c.JSON(http.StatusOK, okResp{data})
+}
+
 // UpdateSubscriber handles modification of a subscriber.
 func (a *App) UpdateSubscriber(c echo.Context) error {
-	// Get the authenticated user.
 	user := auth.GetUser(c)
 
-	// Get and validate fields.
 	req := struct {
 		models.Subscriber
 		Lists          []int `json:"lists"`
@@ -270,7 +299,6 @@ func (a *App) UpdateSubscriber(c echo.Context) error {
 		return err
 	}
 
-	// Sanitize and validate the email field.
 	if em, err := a.importer.SanitizeEmail(req.Email); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	} else {
@@ -281,19 +309,14 @@ func (a *App) UpdateSubscriber(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, a.i18n.T("subscribers.invalidName"))
 	}
 
-	// Filter lists against the current user's permitted lists.
 	listIDs := user.FilterListsByPerm(auth.PermTypeManage, req.Lists)
 
-	// Not a single permitted list?
 	if len(req.Lists) > 0 && len(listIDs) == 0 {
 		return echo.NewHTTPError(http.StatusForbidden, a.i18n.Ts("globals.messages.permissionDenied", "name", "lists"))
 	}
 
-	// Update the subscriber in the DB.
 	id := getID(c)
 
-	// Get the user's permitted lists to pass to the update query so that lists on the subscribers
-	// to which they don't have permissions are preserved/left as-is when deleteLists=true.
 	allPerm, permittedLists := user.GetPermittedLists(auth.PermTypeManage)
 	if allPerm {
 		permittedLists = []int{}
