@@ -643,7 +643,7 @@ $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trig_sync_subscriber_to_verified_status ON subscribers;
 CREATE TRIGGER trig_sync_subscriber_to_verified_status
-AFTER INSERT OR UPDATE OF attribs ON subscribers
+AFTER INSERT ON subscribers
 FOR EACH ROW
 EXECUTE FUNCTION sync_subscriber_to_verified_status();
 
