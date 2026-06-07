@@ -318,7 +318,7 @@ export const getIndividualCampaignLinkClicks = async (params) => http.get(
 );
 
 export const getIndividualCampaignLinkClickUsers = async (params) => http.get(
-  'api/campaigns/analytics/get_individual_clicks_data',
+  '/api/campaigns/analytics/get_individual_clicks_data',
   { params, loading: models.campaigns },
 );
 
