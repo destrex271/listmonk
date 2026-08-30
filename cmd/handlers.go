@@ -98,7 +98,6 @@ func initHTTPHandlers(e *echo.Echo, a *App) {
 			})
 		)
 
-		g.POST("/api/subscribers/switch_list", a.handleAddAndRmList)
 		// API endpoints.
 		g.GET("/api/health", a.HealthCheck)
 		g.GET("/api/config", a.GetServerConfig)
@@ -114,6 +113,8 @@ func initHTTPHandlers(e *echo.Echo, a *App) {
 		g.GET("/api/logs", pm(a.GetLogs, "settings:get"))
 		g.GET("/api/events", pm(a.EventStream, "settings:get"))
 		g.GET("/api/about", a.GetAboutInfo)
+
+		g.POST("/api/subscribers/switch_list", a.handleAddAndRmList)
 
 		g.GET("/api/subscribers", pm(a.QuerySubscribers, "subscribers:get_all", "subscribers:get"))
 		g.GET("/api/subscribers/:id", pm(hasID(a.GetSubscriber), "subscribers:get_all", "subscribers:get"))
@@ -163,6 +164,9 @@ func initHTTPHandlers(e *echo.Echo, a *App) {
 		g.GET("/api/campaigns/running/stats", pm(a.GetRunningCampaignStats, "campaigns:get_all", "campaigns:get"))
 		g.GET("/api/campaigns/:id", pm(hasID(a.GetCampaign), "campaigns:get_all", "campaigns:get"))
 		g.GET("/api/campaigns/analytics/:type", pm(a.GetCampaignViewAnalytics, "campaigns:get_analytics"))
+		g.GET("/api/campaigns/analytics/individual_views", handleGetCampaignIndividualViews)
+		g.GET("/api/campaigns/analytics/individual_clicks", handleGetCampaignIndividualLinkClicks)
+		g.GET("/api/campaigns/analytics/get_individual_clicks_data", handleGetCampaignIndividualLinkClicksUsers)
 		g.GET("/api/campaigns/:id/preview", pm(hasID(a.PreviewCampaign), "campaigns:get_all", "campaigns:get"))
 		g.POST("/api/campaigns/:id/preview/archive", pm(hasID(a.PreviewCampaignArchive), "campaigns:get_all", "campaigns:get"))
 		g.POST("/api/campaigns/:id/preview", pm(hasID(a.PreviewCampaign), "campaigns:get_all", "campaigns:get"))
