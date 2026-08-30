@@ -12,6 +12,26 @@ const HTML_ATTRIBUTE_ESCAPES: Record<string, string> = {
   '>': '&gt;',
 };
 
+// Responsive media query for ColumnsContainer. The base block renders its
+// cells as inline-styled <td>s (side by side on all screens); this rule stacks
+// them into full-width rows on mobile, like the hybrid email technique.
+const HYBRID_STACK_CSS = `
+  <style>
+    @media only screen and (max-width: 600px) {
+      .lm-col { display: block !important; width: 100% !important; }
+    }
+  </style>`;
+
+// The base ColumnsContainer cell <td> always carries an inline
+// `box-sizing: content-box` style, which is unique to those cells in the
+// rendered document. Mark them with a class so the media query can target them.
+function markResponsiveColumns(html: string): string {
+  return html.replace(
+    /<td style="box-sizing: content-box;/g,
+    '<td class="lm-col" style="box-sizing: content-box;',
+  );
+}
+
 function injectHeadContents(html: string, contents: string) {
   const headMatch = html.match(/<head\b([^>]*)>/i);
   if (headMatch) {
@@ -67,10 +87,10 @@ export function renderHtmlWithMeta(
   const embedURLs = collectImageEmbedURLs(document);
   const html = renderToStaticMarkup(document, options);
   const rendered = options.outlook ? postProcessForOutlook(html) : html;
-  const output = applyImageEmbeds(rendered, embedURLs);
+  const output = applyImageEmbeds(markResponsiveColumns(rendered), embedURLs);
   const head = options.outlook ? `${VIEWPORT_META}${MSO_DOCUMENT_SETTINGS}` : VIEWPORT_META;
 
-  return injectHeadContents(output, head);
+  return injectHeadContents(output, head + HYBRID_STACK_CSS);
 }
 
 function escapeRegExp(s: string): string {

@@ -66,7 +66,20 @@ export default {
           data: {},
           onChange: (data, body) => {
             // Hack to fix quotes in Go {{ templating }} in the HTML body.
-            const tpl = body.replace(/\{\{[^}]*\}\}/g, (match) => match.replace(/&quot;/g, '"'));
+            let tpl = body.replace(/\{\{[^}]*\}\}/g, (match) => match.replace(/&quot;/g, '"'));
+
+            // Move any <style> blocks from the body into the <head>. Email
+            // clients like Gmail strip <style> tags from the body, so inline
+            // responsive rules in Html blocks (media queries etc.) only work
+            // when hoisted into the head.
+            const styles = [];
+            tpl = tpl.replace(/<style(?:\s[^>]*)?>[\s\S]*?<\/style>/gi, (match) => {
+              styles.push(match);
+              return '';
+            });
+            if (styles.length > 0) {
+              tpl = tpl.replace('</head>', `${styles.join('\n')}\n  </head>`);
+            }
             this.$emit('change', { source: JSON.stringify(data), body: tpl });
           },
         });

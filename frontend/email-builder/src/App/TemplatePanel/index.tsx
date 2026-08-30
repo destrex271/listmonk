@@ -4,6 +4,8 @@ import { MonitorOutlined, PhoneIphoneOutlined } from '@mui/icons-material';
 import { Box, Stack, SxProps, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
 import { Reader } from '@usewaypoint/email-builder';
 
+import { renderHtmlWithMeta } from '../../utils';
+
 import EditorBlock from '../../documents/editor/EditorBlock';
 import {
   setSelectedScreenSize,
@@ -60,7 +62,15 @@ export default function TemplatePanel() {
       case 'preview':
         return (
           <Box sx={mainBoxSx}>
-            <Reader document={document} rootBlockId="root" />
+            {selectedScreenSize === 'mobile' ? (
+              <iframe
+                title="Mobile preview"
+                srcDoc={renderHtmlWithMeta(document, { rootBlockId: 'root' })}
+                style={{ width: '100%', height: '100%', border: 0 }}
+              />
+            ) : (
+              <Reader document={document} rootBlockId="root" />
+            )}
           </Box>
         );
       case 'html':
