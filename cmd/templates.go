@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/knadh/listmonk/internal/manager"
 	"github.com/knadh/listmonk/models"
 	"github.com/labstack/echo/v4"
 )
@@ -254,6 +255,13 @@ func (a *App) previewTemplate(tpl models.Template) ([]byte, error) {
 				a.i18n.Ts("templates.errorRendering", "error", err.Error()))
 		}
 		out = msg.Body()
+
+		// The dummy campaign has no content type, so the delivery-layer
+		// post-processing is bypassed in render(). Apply it directly for
+		// visual templates so the preview looks like the sent email.
+		if tpl.Type == models.TemplateTypeCampaignVisual {
+			out = manager.PostProcessHTML(out)
+		}
 	} else {
 		// Compile transactional template.
 		if err := tpl.Compile(a.manager.GenericTemplateFuncs()); err != nil {
