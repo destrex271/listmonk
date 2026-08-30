@@ -48,6 +48,14 @@ func (m *CampaignMessage) render() error {
 	}
 	m.body = out.Bytes()
 
+	// Finalize the assembled HTML body: mark ColumnsContainer cells responsive
+	// (so they stack on mobile) and guarantee the viewport + media query live
+	// in the document <head>. Only visual (email-builder) campaigns are
+	// touched; plain-text and classic HTML bodies render as authored.
+	if m.Campaign.ContentType == models.CampaignContentTypeVisual {
+		m.body = PostProcessHTML(m.body)
+	}
+
 	// Is there an alt body?
 	if m.Campaign.ContentType != models.CampaignContentTypePlain && m.Campaign.AltBody.Valid {
 		if m.Campaign.AltBodyTpl != nil {

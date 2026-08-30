@@ -25,10 +25,12 @@ const HYBRID_STACK_CSS = `
 // The base ColumnsContainer cell <td> always carries an inline
 // `box-sizing: content-box` style, which is unique to those cells in the
 // rendered document. Mark them with a class so the media query can target them.
+// The renderer emits React inline styles (`box-sizing:content-box`, no space)
+// but upstream may output a spaced variant, so match both.
 function markResponsiveColumns(html: string): string {
   return html.replace(
-    /<td style="box-sizing: content-box;/g,
-    '<td class="lm-col" style="box-sizing: content-box;',
+    /<td style="box-sizing: ?content-box;/g,
+    '<td class="lm-col" style="box-sizing:content-box;',
   );
 }
 
