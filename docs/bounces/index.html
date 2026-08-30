@@ -19,7 +19,7 @@
       
       
       <link rel="icon" href="../images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -27,7 +27,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -656,6 +656,17 @@
     <span class="md-ellipsis">
       
         Amazon Simple Email Service (SES)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#azure-communication-services-acs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Azure Communication Services (ACS)
       
     </span>
   </a>
@@ -1518,6 +1529,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#azure-communication-services-acs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Azure Communication Services (ACS)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#exporting-bounces" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1550,7 +1572,7 @@
 <h2 id="pop3-bounce-mailbox">POP3 bounce mailbox<a class="headerlink" href="#pop3-bounce-mailbox" title="Permanent link">&para;</a></h2>
 <p>Configure the bounce mailbox in Settings -&gt; Bounces. Either the "From" e-mail that is set on a campaign (or in settings) should have a POP3 mailbox behind it to receive bounce e-mails, or you should configure a dedicated POP3 mailbox and add that address as the <code>Return-Path</code> (envelope sender) header in Settings -&gt; SMTP -&gt; Custom headers box. For example:</p>
 <div class="highlight"><pre><span></span><code>[
-    {&quot;Return-Path&quot;: &quot;your-bounce-inbox@site.com&quot;}
+    {"Return-Path": "your-bounce-inbox@site.com"}
 ]
 </code></pre></div>
 <p>Some mail servers may also return the bounce to the <code>Reply-To</code> address, which can also be added to the header settings.</p>
@@ -1622,9 +1644,9 @@
 </tr>
 </tbody>
 </table>
-<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-u<span class="w"> </span><span class="s1">&#39;api_username:access_token&#39;</span><span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s1">&#39;http://localhost:9000/webhooks/bounce&#39;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--data<span class="w"> </span><span class="s1">&#39;{&quot;email&quot;: &quot;user1@mail.com&quot;, &quot;campaign_uuid&quot;: &quot;9f86b50d-5711-41c8-ab03-bc91c43d711b&quot;, &quot;source&quot;: &quot;api&quot;, &quot;type&quot;: &quot;hard&quot;, &quot;meta&quot;: &quot;{\&quot;additional\&quot;: \&quot;info\&quot;}}&#39;</span>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-u<span class="w"> </span><span class="s1">'api_username:access_token'</span><span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s1">'http://localhost:9000/webhooks/bounce'</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--data<span class="w"> </span><span class="s1">'{"email": "user1@mail.com", "campaign_uuid": "9f86b50d-5711-41c8-ab03-bc91c43d711b", "source": "api", "type": "hard", "meta": "{\"additional\": \"info\"}}'</span>
 </code></pre></div>
 <h2 id="external-webhooks">External webhooks<a class="headerlink" href="#external-webhooks" title="Permanent link">&para;</a></h2>
 <p>listmonk supports receiving bounce webhook events from the following SMTP providers.</p>
@@ -1641,6 +1663,11 @@
 <td style="text-align: left;"><code>https://listmonk.yoursite.com/webhooks/service/ses</code></td>
 <td style="text-align: left;">Amazon (AWS) SES</td>
 <td style="text-align: left;">See below</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>https://listmonk.yoursite.com/webhooks/service/azure</code></td>
+<td style="text-align: left;">Azure Communication Services (ACS)</td>
+<td style="text-align: left;"><a href="https://learn.microsoft.com/en-us/azure/event-grid/communication-services-email-events">More info</a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>https://listmonk.yoursite.com/webhooks/service/sendgrid</code></td>
@@ -1719,9 +1746,32 @@
 </li>
 <li>You can optionally <a href="https://docs.aws.amazon.com/ses/latest/dg/monitor-sending-activity-using-notifications-email.html#monitor-sending-activity-using-notifications-email-disabling">disable email feedback forwarding</a>.</li>
 </ol>
+<h2 id="azure-communication-services-acs">Azure Communication Services (ACS)<a class="headerlink" href="#azure-communication-services-acs" title="Permanent link">&para;</a></h2>
+<p>If you use Azure Communication Services Email, listmonk can receive delivery report events from Azure Event Grid and turn them into bounces.</p>
+<ol>
+<li>In listmonk settings, go to "Bounces" and configure:<ul>
+<li>Enable bounce processing: <code>Enabled</code></li>
+<li>Enable bounce webhooks: <code>Enabled</code></li>
+<li>Enable Azure ACS: <code>Enabled</code></li>
+<li>Optional: set <code>Azure Event Grid Shared Secret</code>.</li>
+<li>Optional: set <code>Azure Shared Secret Header Name</code> if you want listmonk to read the secret from a header (defaults to <code>X-Listmonk-Webhook-Secret</code>).</li>
+</ul>
+</li>
+<li>In listmonk settings, go to "SMTP" and use the <code>Azure ACS</code> quick preset to fill SMTP defaults.</li>
+<li>In Azure, create an Event Grid subscription for your ACS Email events with:<ul>
+<li>Endpoint type: <code>Web Hook</code></li>
+<li>Endpoint URL: <code>https://listmonk.yoursite.com/webhooks/service/azure</code></li>
+<li>If using query-param auth, append <code>?code=&lt;your-shared-secret&gt;</code>.</li>
+<li>If using header auth, configure Event Grid to include the same secret in the header name configured in listmonk.</li>
+</ul>
+</li>
+<li>During subscription creation, Event Grid sends a subscription validation event. listmonk automatically returns <code>validationResponse</code> for this handshake.</li>
+<li>Subscribe to <code>Microsoft.Communication.EmailDeliveryReportReceived</code> events. listmonk maps relevant statuses to bounce records.</li>
+<li>Send test mail and verify bounces in listmonk.</li>
+</ol>
 <h2 id="exporting-bounces">Exporting bounces<a class="headerlink" href="#exporting-bounces" title="Permanent link">&para;</a></h2>
 <p>Bounces can be exported via the JSON API:
-<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-u<span class="w"> </span><span class="s1">&#39;username:passsword&#39;</span><span class="w"> </span><span class="s1">&#39;http://localhost:9000/api/bounces&#39;</span>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-u<span class="w"> </span><span class="s1">'username:passsword'</span><span class="w"> </span><span class="s1">'http://localhost:9000/api/bounces'</span>
 </code></pre></div></p>
 <p>Or by querying the database directly:
 <div class="highlight"><pre><span></span><code><span class="k">SELECT</span><span class="w"> </span><span class="n">bounces</span><span class="p">.</span><span class="n">created_at</span><span class="p">,</span>
@@ -1788,7 +1838,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.indexes", "navigation.sections", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
