@@ -270,3 +270,23 @@ func (c *Campaign) ConvertContent(from, to string) (string, error) {
 
 	return out, nil
 }
+
+type CampaignIndividualViews struct {
+	CampaignId string `db:"campaign_id" json:"campaign_id"`
+	Name       string `db:"name" json:"name"`
+	Email      string `db:"email" json:"email"`
+	Status     string `db:"status" json:"status"`
+}
+
+type CampaignIndividualLinkClicks struct {
+	CampaignId string `db:"campaign_id" json:"campaign_id"`
+	Url        string `db:"url" json:"url"`
+	ClickCount string `db:"click_count" json:"click_count"`
+}
+
+type CampaignIndividualLinkClicksUsers struct {
+	CampaignId string `db:"campaign_id" json:"campaign_id"`
+	Url        string `db:"url" json:"url"`
+	Name       string `db:"name" json:"name"`
+	Email      string `db:"email" json:"email"`
+}

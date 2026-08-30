@@ -487,3 +487,20 @@ WITH view AS (
 INSERT INTO campaign_views (campaign_id, subscriber_id)
     VALUES((SELECT campaign_id FROM view), (SELECT subscriber_id FROM view));
 
+-- name: get-individual-campaign-views
+SELECT distinct c.id AS campaign_id, subs.name AS name, subs.email, subs.status AS status 
+FROM campaigns c
+INNER JOIN campaign_views cpv ON c.id = cpv.campaign_id
+RIGHT JOIN subscribers subs ON cpv.subscriber_id = subs.id
+WHERE cpv.campaign_id = ANY($1)
+AND cpv.created_at BETWEEN $2 AND $3;
+
+-- name: get-individual-link-clicks
+SELECT DISTINCT campaign_id, link_id, url, count(subscriber_id) as click_count from link_clicks inner join links on links.id = link_id WHERE campaign_id = ANY($1) AND link_clicks.created_at BETWEEN $2 AND $3 group by link_id, url, campaign_id;
+
+-- name: get-individual-link-clicks-user-data-single-link
+select link_clicks.campaign_id as campaign_id, links.url as url, subscribers.name as name, subscribers.email as email from link_clicks 
+inner join links on links.id = link_id 
+inner join subscribers on subscribers.id = subscriber_id 
+where link_clicks.campaign_id = ANY($1)
+AND link_clicks.created_at BETWEEN $2 AND $3;
