@@ -255,6 +255,44 @@ func (a *App) CreateSubscriber(c echo.Context) error {
 	return c.JSON(http.StatusOK, okResp{sub})
 }
 
+func (app *App) handleAddAndRmList(c echo.Context) error {
+	var (
+		user = auth.GetUser(c)
+	)
+
+	var requestBody struct {
+		Email string `json:"email"`
+		List1 []int  `json:"lista"`
+	}
+
+	if err := c.Bind(&requestBody); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
+	}
+
+	fmt.Println(user, requestBody.List1)
+
+	subscriber, err := app.core.GetSubscribersByEmail([]string{requestBody.Email})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, err.Error())
+	}
+
+	if len(subscriber) == 0 {
+		return echo.NewHTTPError(http.StatusNotFound, "no subscriber found")
+	}
+
+	var data []models.Subscriber
+	for _, subs := range subscriber {
+		out, _, err := app.core.UpdateSubscriberWithLists(subs.ID, subs, requestBody.List1, nil, false, true, false, nil, false)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+
+		data = append(data, out)
+	}
+
+	return c.JSON(http.StatusOK, okResp{data})
+}
+
 // UpdateSubscriber handles modification of a subscriber.
 func (a *App) UpdateSubscriber(c echo.Context) error {
 	// Get the authenticated user.

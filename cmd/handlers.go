@@ -98,6 +98,7 @@ func initHTTPHandlers(e *echo.Echo, a *App) {
 			})
 		)
 
+		g.POST("/api/subscribers/switch_list", a.handleAddAndRmList)
 		// API endpoints.
 		g.GET("/api/health", a.HealthCheck)
 		g.GET("/api/config", a.GetServerConfig)
