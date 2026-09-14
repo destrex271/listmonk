@@ -1,4 +1,4 @@
-package manager
+package utils
 
 import (
 	"regexp"
@@ -28,7 +28,7 @@ func TestEnsureResponsiveHead(t *testing.T) {
 	if !contains(got, ".lm-col { display: block !important; width: 100% !important; }") {
 		t.Errorf("lm-col media rule missing: %s", got)
 	}
-	headHead := headCloseRe.FindStringIndex(got)
+	headHead := postProcessHeadCloseRe.FindStringIndex(got)
 	headBody := regexp.MustCompile(`(?i)<body\b`).FindStringIndex(got)
 	if headHead == nil || headBody == nil || headHead[0] > headBody[0] {
 		t.Errorf("injected content not before <body>: %s", got)

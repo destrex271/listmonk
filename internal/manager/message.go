@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/knadh/listmonk/internal/utils"
 	"github.com/knadh/listmonk/models"
 )
 
@@ -53,7 +54,7 @@ func (m *CampaignMessage) render() error {
 	// in the document <head>. Only visual (email-builder) campaigns are
 	// touched; plain-text and classic HTML bodies render as authored.
 	if m.Campaign.ContentType == models.CampaignContentTypeVisual {
-		m.body = PostProcessHTML(m.body)
+		m.body = utils.PostProcessHTML(m.body)
 	}
 
 	// Is there an alt body?
